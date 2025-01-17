@@ -1,25 +1,80 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Header from './components/Header';
+import Trending from './components/Trending';
+import ActivityFeed from './components/ActivityFeed';
+import ProfilePage from './pages/ProfilePage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import AddFriendPage from './pages/AddFriendsPage';
+import FriendsActivityFeed from './pages/FriendsActivityFeed';
+import FriendProfilePage from './pages/FriendProfilePage';
+import ChatPage from './pages/ChatPage';
 
 function App() {
+  const [user, setUser] = useState(() => {
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('user');
+    }
+  }, [user]);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <div className="bg-black min-h-screen">
+        <Header user={user} setUser={setUser} />
+        <div className="p-4 bg-black space-y-8">
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <>
+                  <Trending
+                  />
+                </>
+              }
+            />
+            <Route path="/login" element={<LoginPage setUser={setUser} />} />
+            <Route path="/signup" element={<SignupPage setUser={setUser} />} />
+            <Route
+              path="/profile"
+              element={user ? <ProfilePage user={user} setUser={setUser} /> : <LoginRedirect />}
+            />
+            <Route
+              path="/add-friend"
+              element={user ? <AddFriendPage user={user} /> : <LoginRedirect />}
+            />
+            <Route
+              path="/friends-activity"
+              element={user ? <FriendsActivityFeed user={user} /> : <LoginRedirect />}
+            />
+            <Route 
+              path="/friend/:username" 
+              element={<FriendProfilePage />} 
+            />
+            <Route 
+              path="/chat"
+              element={user ? <ChatPage user={user} /> : <LoginRedirect />} 
+            />
+          </Routes>
+        </div>
+      </div>
+    </Router>
   );
 }
+
+const LoginRedirect = () => {
+  return (
+    <div className="flex items-center justify-center h-screen">
+      <h2 className="text-2xl font-bold">You must be logged in to view this page.</h2>
+    </div>
+  );
+};
 
 export default App;

@@ -3,6 +3,55 @@ import { useNavigate } from 'react-router-dom';
 import Confirm from '../components/Confirm';
 import { removeFriend } from '../helpers/friendHelpers';
 
+let defaultProfileIcon;
+try {
+    defaultProfileIcon = require('../assets/images/profile-icon.png');
+} catch (e) {
+    console.warn('Default profile icon not found');
+    defaultProfileIcon = null;
+}
+
+const UserAvatar = ({ avatar, alt, size, className = "", style = {} }) => {
+    const hasAvatar = avatar && avatar !== "https://via.placeholder.com/150";
+    
+    if (hasAvatar) {
+        return (
+            <img
+                src={avatar}
+                alt={alt}
+                className={className}
+                style={style}
+            />
+        );
+    }
+    
+    return (
+        <div
+            className={className}
+            style={{
+                ...style,
+                backgroundColor: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}
+        >
+            {defaultProfileIcon ? (
+                <img
+                    src={defaultProfileIcon}
+                    alt={alt}
+                    style={{
+                        width: `${parseInt(size) * 0.6}px`,
+                        height: `${parseInt(size) * 0.6}px`
+                    }}
+                />
+            ) : (
+                <span style={{ fontSize: `${parseInt(size) * 0.5}px`, color: '#333' }}>👤</span>
+            )}
+        </div>
+    );
+};
+
 const ProfilePage = ({ user, setUser }) => {
     const [showModal, setShowModal] = useState(false);
     const [friends, setFriends] = useState(
@@ -105,10 +154,15 @@ const ProfilePage = ({ user, setUser }) => {
             )}
 
             <div className="flex items-center space-x-4 mb-6">
-                <img
-                    src={avatar}
+                <UserAvatar
+                    avatar={avatar}
                     alt={`${user.name}'s avatar`}
+                    size="80"
                     className="w-20 h-20 rounded-full border border-gray-300"
+                    style={{
+                        width: '80px',
+                        height: '80px'
+                    }}
                 />
                 <div>
                     <h1 className="text-2xl font-bold">{user.name}</h1>

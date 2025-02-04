@@ -13,6 +13,7 @@ import {
 // Import local icons with fallback
 let globalIconImage;
 let groupIconImage;
+let defaultProfileIcon;
 
 try {
     globalIconImage = require('../assets/images/global-icon.png');
@@ -27,6 +28,54 @@ try {
     console.warn('Group icon not found, using fallback');
     groupIconImage = null;
 }
+
+try {
+    defaultProfileIcon = require('../assets/images/profile-icon.png');
+} catch (e) {
+    console.warn('Default profile icon not found');
+    defaultProfileIcon = null;
+}
+
+const UserAvatar = ({ avatar, alt, size, className = "", style = {} }) => {
+    const hasAvatar = avatar && avatar !== "https://via.placeholder.com/150";
+
+    if (hasAvatar) {
+        return (
+            <img
+                src={avatar}
+                alt={alt}
+                className={className}
+                style={style}
+            />
+        );
+    }
+
+    return (
+        <div
+            className={className}
+            style={{
+                ...style,
+                backgroundColor: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}
+        >
+            {defaultProfileIcon ? (
+                <img
+                    src={defaultProfileIcon}
+                    alt={alt}
+                    style={{
+                        width: `${parseInt(size) * 0.6}px`,
+                        height: `${parseInt(size) * 0.6}px`
+                    }}
+                />
+            ) : (
+                <span style={{ fontSize: `${parseInt(size) * 0.5}px`, color: '#333' }}>👤</span>
+            )}
+        </div>
+    );
+};
 
 const ChatPage = ({ user }) => {
     const [messages, setMessages] = useState([]);
@@ -368,9 +417,10 @@ const ChatPage = ({ user }) => {
                                 }`}
                         >
                             <div className="flex items-center space-x-3">
-                                <img
-                                    src={getUserAvatar(friend)}
+                                <UserAvatar
+                                    avatar={getUserAvatar(friend)}
                                     alt={friend}
+                                    size="40"
                                     className="w-10 h-10 rounded-full object-cover border-2 border-green-500"
                                     style={{
                                         width: '40px',
@@ -486,9 +536,10 @@ const ChatPage = ({ user }) => {
                             )}
                         </div>
                     ) : activeChat.startsWith("dm-") ? (
-                        <img
-                            src={getUserAvatar(activeChat.replace("dm-", ""))}
+                        <UserAvatar
+                            avatar={getUserAvatar(activeChat.replace("dm-", ""))}
                             alt="User"
+                            size="48"
                             className="w-12 h-12 rounded-full object-cover border-2 border-green-500"
                             style={{
                                 width: '48px',
@@ -556,9 +607,10 @@ const ChatPage = ({ user }) => {
                             >
                                 {/* Show avatar for other users' messages */}
                                 {message.userName !== username && (
-                                    <img
-                                        src={getUserAvatar(message.userName)}
+                                    <UserAvatar
+                                        avatar={getUserAvatar(message.userName)}
                                         alt={message.userName}
+                                        size="32"
                                         className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                                         style={{
                                             width: '32px',
@@ -590,9 +642,10 @@ const ChatPage = ({ user }) => {
 
                                 {/* Show avatar for current user's messages */}
                                 {message.userName === username && (
-                                    <img
-                                        src={currentUserAvatar}
+                                    <UserAvatar
+                                        avatar={currentUserAvatar}
                                         alt="You"
+                                        size="32"
                                         className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                                         style={{
                                             width: '32px',
@@ -674,9 +727,10 @@ const ChatPage = ({ user }) => {
                                             : "bg-gray-700 hover:bg-gray-600"
                                             }`}
                                     >
-                                        <img
-                                            src={getUserAvatar(friend)}
+                                        <UserAvatar
+                                            avatar={getUserAvatar(friend)}
                                             alt={friend}
+                                            size="32"
                                             className="w-8 h-8 rounded-full object-cover"
                                             style={{
                                                 width: '32px',

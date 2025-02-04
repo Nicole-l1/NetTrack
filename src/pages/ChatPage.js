@@ -10,6 +10,24 @@ import {
     serverTimestamp,
 } from "firebase/firestore";
 
+// Import local icons with fallback
+let globalIconImage;
+let groupIconImage;
+
+try {
+    globalIconImage = require('../assets/images/global-icon.png');
+} catch (e) {
+    console.warn('Global icon not found, using fallback');
+    globalIconImage = null;
+}
+
+try {
+    groupIconImage = require('../assets/images/group-icon.png');
+} catch (e) {
+    console.warn('Group icon not found, using fallback');
+    groupIconImage = null;
+}
+
 const ChatPage = ({ user }) => {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState("");
@@ -22,9 +40,20 @@ const ChatPage = ({ user }) => {
     const [groupChats, setGroupChats] = useState([]);
     const [newGroupName, setNewGroupName] = useState("");
     const [loading, setLoading] = useState(true);
+    const [userAvatars, setUserAvatars] = useState({}); // Store all user avatars
     const messagesEndRef = useRef(null);
 
     const username = user?.username || "Guest";
+    const currentUserAvatar = user?.avatar || "https://via.placeholder.com/150";
+
+    useEffect(() => {
+        const users = JSON.parse(localStorage.getItem("users")) || [];
+        const avatarMap = {};
+        users.forEach(u => {
+            avatarMap[u.username] = u.avatar || "https://via.placeholder.com/150";
+        });
+        setUserAvatars(avatarMap);
+    }, []);
 
     useEffect(() => {
         const users = JSON.parse(localStorage.getItem("users")) || [];
@@ -99,7 +128,7 @@ const ChatPage = ({ user }) => {
 
         try {
             if (activeChat === "global") {
-                // Global chat
+                // Global chat - simpler query without orderBy initially
                 q = query(
                     collection(db, "chats"),
                     where("type", "==", "global")
@@ -108,7 +137,7 @@ const ChatPage = ({ user }) => {
                 // Direct message
                 const otherUser = activeChat.replace("dm-", "");
                 const participants = [username, otherUser].sort();
-                
+
                 q = query(
                     collection(db, "chats"),
                     where("type", "==", "dm"),
@@ -131,7 +160,7 @@ const ChatPage = ({ user }) => {
                         id: doc.id,
                         ...doc.data(),
                     }));
-                    
+
                     // Sort messages by timestamp manually
                     msgs.sort((a, b) => {
                         const timeA = a.timestamp?.toDate?.() || new Date(0);
@@ -260,6 +289,10 @@ const ChatPage = ({ user }) => {
         }
     };
 
+    const getUserAvatar = (username) => {
+        return userAvatars[username] || "https://via.placeholder.com/150";
+    };
+
     return (
         <div className="flex h-screen bg-gray-900 text-white">
             {/* Sidebar */}
@@ -274,13 +307,32 @@ const ChatPage = ({ user }) => {
                         setActiveChat("global");
                         setChatType("global");
                     }}
-                    className={`p-4 cursor-pointer hover:bg-gray-700 border-b border-gray-700 ${
-                        activeChat === "global" ? "bg-gray-700" : ""
-                    }`}
+                    className={`p-4 cursor-pointer hover:bg-gray-700 border-b border-gray-700 ${activeChat === "global" ? "bg-gray-700" : ""
+                        }`}
                 >
                     <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-xl">
-                            🌍
+                        <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center"
+                            style={{
+                                width: '40px',
+                                height: '40px',
+                                minWidth: '40px',
+                                minHeight: '40px',
+                                maxWidth: '40px',
+                                maxHeight: '40px',
+                                backgroundColor: '#A8D5FF', // Pastel blue
+                                border: '2px solid #7AB8E8'
+                            }}
+                        >
+                            {globalIconImage ? (
+                                <img
+                                    src={globalIconImage}
+                                    alt="Global"
+                                    style={{ width: '20px', height: '20px' }}
+                                />
+                            ) : (
+                                <span style={{ fontSize: '20px' }}>🌍</span>
+                            )}
                         </div>
                         <div>
                             <p className="font-semibold">Global Chat</p>
@@ -312,14 +364,23 @@ const ChatPage = ({ user }) => {
                         <div
                             key={friend}
                             onClick={() => startDirectMessage(friend)}
-                            className={`p-4 cursor-pointer hover:bg-gray-700 border-b border-gray-700 ${
-                                activeChat === `dm-${friend}` ? "bg-gray-700" : ""
-                            }`}
+                            className={`p-4 cursor-pointer hover:bg-gray-700 border-b border-gray-700 ${activeChat === `dm-${friend}` ? "bg-gray-700" : ""
+                                }`}
                         >
                             <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center font-bold">
-                                    {friend[0].toUpperCase()}
-                                </div>
+                                <img
+                                    src={getUserAvatar(friend)}
+                                    alt={friend}
+                                    className="w-10 h-10 rounded-full object-cover border-2 border-green-500"
+                                    style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        minWidth: '40px',
+                                        minHeight: '40px',
+                                        maxWidth: '40px',
+                                        maxHeight: '40px'
+                                    }}
+                                />
                                 <div className="flex-1">
                                     <p className="font-semibold">{friend}</p>
                                     <p className="text-sm text-gray-400 truncate">
@@ -355,13 +416,33 @@ const ChatPage = ({ user }) => {
                                 setActiveChat(`group-${group.id}`);
                                 setChatType("group");
                             }}
-                            className={`p-4 cursor-pointer hover:bg-gray-700 border-b border-gray-700 ${
-                                activeChat === `group-${group.id}` ? "bg-gray-700" : ""
-                            }`}
+                            className={`p-4 cursor-pointer hover:bg-gray-700 border-b border-gray-700 ${activeChat === `group-${group.id}` ? "bg-gray-700" : ""
+                                }`}
                         >
                             <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-xl">
-                                    👥
+                                {/* Group icon with pastel red background */}
+                                <div
+                                    className="w-10 h-10 rounded-full flex items-center justify-center"
+                                    style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        minWidth: '40px',
+                                        minHeight: '40px',
+                                        maxWidth: '40px',
+                                        maxHeight: '40px',
+                                        backgroundColor: '#FFB3B3', // Pastel red
+                                        border: '2px solid #FF8A8A'
+                                    }}
+                                >
+                                    {groupIconImage ? (
+                                        <img
+                                            src={groupIconImage}
+                                            alt="Group"
+                                            style={{ width: '20px', height: '20px' }}
+                                        />
+                                    ) : (
+                                        <span style={{ fontSize: '20px' }}>👥</span>
+                                    )}
                                 </div>
                                 <div className="flex-1">
                                     <p className="font-semibold">{group.name}</p>
@@ -378,15 +459,82 @@ const ChatPage = ({ user }) => {
             {/* Main Chat Area */}
             <div className="flex-1 flex flex-col">
                 {/* Chat Header */}
-                <div className="bg-gray-800 p-4 border-b border-gray-700">
-                    <h2 className="text-xl font-bold">{getChatTitle()}</h2>
-                    {activeChat.startsWith("group-") && (
-                        <p className="text-sm text-gray-400">
-                            {groupChats
-                                .find((g) => g.id === activeChat.replace("group-", ""))
-                                ?.participants.join(", ")}
-                        </p>
+                <div className="bg-gray-800 p-4 border-b border-gray-700 flex items-center space-x-3">
+                    {/* Header Avatar */}
+                    {activeChat === "global" ? (
+                        <div
+                            className="rounded-full flex items-center justify-center"
+                            style={{
+                                width: '48px',
+                                height: '48px',
+                                minWidth: '48px',
+                                minHeight: '48px',
+                                maxWidth: '48px',
+                                maxHeight: '48px',
+                                backgroundColor: '#A8D5FF', // Pastel blue
+                                border: '2px solid #7AB8E8'
+                            }}
+                        >
+                            {globalIconImage ? (
+                                <img
+                                    src={globalIconImage}
+                                    alt="Global"
+                                    style={{ width: '24px', height: '24px' }}
+                                />
+                            ) : (
+                                <span style={{ fontSize: '24px' }}>🌍</span>
+                            )}
+                        </div>
+                    ) : activeChat.startsWith("dm-") ? (
+                        <img
+                            src={getUserAvatar(activeChat.replace("dm-", ""))}
+                            alt="User"
+                            className="w-12 h-12 rounded-full object-cover border-2 border-green-500"
+                            style={{
+                                width: '48px',
+                                height: '48px',
+                                minWidth: '48px',
+                                minHeight: '48px',
+                                maxWidth: '48px',
+                                maxHeight: '48px'
+                            }}
+                        />
+                    ) : (
+                        <div
+                            className="rounded-full flex items-center justify-center"
+                            style={{
+                                width: '48px',
+                                height: '48px',
+                                minWidth: '48px',
+                                minHeight: '48px',
+                                maxWidth: '48px',
+                                maxHeight: '48px',
+                                backgroundColor: '#FFB3B3', // Pastel red
+                                border: '2px solid #FF8A8A'
+                            }}
+                        >
+                            {groupIconImage ? (
+                                <img
+                                    src={groupIconImage}
+                                    alt="Group"
+                                    style={{ width: '24px', height: '24px' }}
+                                />
+                            ) : (
+                                <span style={{ fontSize: '24px' }}>👥</span>
+                            )}
+                        </div>
                     )}
+
+                    <div>
+                        <h2 className="text-xl font-bold">{getChatTitle()}</h2>
+                        {activeChat.startsWith("group-") && (
+                            <p className="text-sm text-gray-400">
+                                {groupChats
+                                    .find((g) => g.id === activeChat.replace("group-", ""))
+                                    ?.participants.join(", ")}
+                            </p>
+                        )}
+                    </div>
                 </div>
 
                 {/* Messages */}
@@ -403,16 +551,31 @@ const ChatPage = ({ user }) => {
                         messages.map((message) => (
                             <div
                                 key={message.id}
-                                className={`flex ${
-                                    message.userName === username ? "justify-end" : "justify-start"
-                                }`}
-                            >
-                                <div
-                                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                                        message.userName === username
-                                            ? "bg-blue-600"
-                                            : "bg-gray-700"
+                                className={`flex items-start space-x-2 ${message.userName === username ? "justify-end" : "justify-start"
                                     }`}
+                            >
+                                {/* Show avatar for other users' messages */}
+                                {message.userName !== username && (
+                                    <img
+                                        src={getUserAvatar(message.userName)}
+                                        alt={message.userName}
+                                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            minWidth: '32px',
+                                            minHeight: '32px',
+                                            maxWidth: '32px',
+                                            maxHeight: '32px'
+                                        }}
+                                    />
+                                )}
+
+                                <div
+                                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.userName === username
+                                        ? "bg-blue-600"
+                                        : "bg-gray-700"
+                                        }`}
                                 >
                                     {message.userName !== username && (
                                         <p className="text-xs text-gray-300 mb-1 font-semibold">
@@ -424,6 +587,23 @@ const ChatPage = ({ user }) => {
                                         {formatTime(message.timestamp)}
                                     </p>
                                 </div>
+
+                                {/* Show avatar for current user's messages */}
+                                {message.userName === username && (
+                                    <img
+                                        src={currentUserAvatar}
+                                        alt="You"
+                                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            minWidth: '32px',
+                                            minHeight: '32px',
+                                            maxWidth: '32px',
+                                            maxHeight: '32px'
+                                        }}
+                                    />
+                                )}
                             </div>
                         ))
                     )}
@@ -489,12 +669,24 @@ const ChatPage = ({ user }) => {
                                                 );
                                             }
                                         }}
-                                        className={`p-3 rounded cursor-pointer transition-colors ${
-                                            selectedFriends.includes(friend)
-                                                ? "bg-blue-600"
-                                                : "bg-gray-700 hover:bg-gray-600"
-                                        }`}
+                                        className={`p-3 rounded cursor-pointer transition-colors flex items-center space-x-3 ${selectedFriends.includes(friend)
+                                            ? "bg-blue-600"
+                                            : "bg-gray-700 hover:bg-gray-600"
+                                            }`}
                                     >
+                                        <img
+                                            src={getUserAvatar(friend)}
+                                            alt={friend}
+                                            className="w-8 h-8 rounded-full object-cover"
+                                            style={{
+                                                width: '32px',
+                                                height: '32px',
+                                                minWidth: '32px',
+                                                minHeight: '32px',
+                                                maxWidth: '32px',
+                                                maxHeight: '32px'
+                                            }}
+                                        />
                                         <p>{friend}</p>
                                     </div>
                                 ))}

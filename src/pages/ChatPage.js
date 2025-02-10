@@ -9,6 +9,8 @@ import {
     where,
     serverTimestamp,
 } from "firebase/firestore";
+import { getUserByUsername } from "../helpers/userHelpers";
+import { doc, getDoc } from "firebase/firestore";
 
 // Import local icons with fallback
 let globalIconImage;
@@ -96,21 +98,50 @@ const ChatPage = ({ user }) => {
     const currentUserAvatar = user?.avatar || "https://via.placeholder.com/150";
 
     useEffect(() => {
-        const users = JSON.parse(localStorage.getItem("users")) || [];
-        const avatarMap = {};
-        users.forEach(u => {
-            avatarMap[u.username] = u.avatar || "https://via.placeholder.com/150";
-        });
-        setUserAvatars(avatarMap);
-    }, []);
+        const loadAvatars = async () => {
+            const placeholder = "https://via.placeholder.com/150";
+
+            // include current user + all friends so both sides render correctly
+            const usernamesToFetch = Array.from(
+                new Set([username, ...(userFriends || [])].filter(Boolean))
+            );
+
+            const avatarMap = {};
+
+            await Promise.all(
+                usernamesToFetch.map(async (u) => {
+                    try {
+                        // your Firestore users doc id is the username
+                        const snap = await getDoc(doc(db, "users", u));
+                        avatarMap[u] = snap.exists() ? (snap.data().avatar || placeholder) : placeholder;
+                    } catch (e) {
+                        avatarMap[u] = placeholder;
+                    }
+                })
+            );
+
+            setUserAvatars(avatarMap);
+        };
+
+        loadAvatars();
+    }, [username, userFriends]);
+
 
     useEffect(() => {
-        const users = JSON.parse(localStorage.getItem("users")) || [];
-        const currentUser = users.find((u) => u.username === username);
-        if (currentUser && currentUser.friends) {
-            setUserFriends(currentUser.friends);
-        }
+        const loadFriends = async () => {
+            if (!username || username === "Guest") return;
+
+            const res = await getUserByUsername(username);
+            if (res.success) {
+                setUserFriends(res.user.friends || []);
+            } else {
+                setUserFriends([]);
+            }
+        };
+
+        loadFriends();
     }, [username]);
+
 
     useEffect(() => {
         if (!user) return;

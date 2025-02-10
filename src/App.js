@@ -12,18 +12,23 @@ import FriendProfilePage from './pages/FriendProfilePage';
 import ChatPage from './pages/ChatPage';
 
 function App() {
-  const [user, setUser] = useState(() => {
-    const storedUser = localStorage.getItem('user');
+  useEffect(() => {
+    localStorage.removeItem("user");
+  }, []);
+
+  const [user, setUserState] = useState(() => {
+    const storedUser = sessionStorage.getItem('user');
     return storedUser ? JSON.parse(storedUser) : null;
   });
 
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
+  const setUser = (u) => {
+    setUserState(u);
+    if (u) {
+      sessionStorage.setItem('user', JSON.stringify(u));
     } else {
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('user');
     }
-  }, [user]);
+  };
 
   return (
     <Router>
@@ -48,19 +53,19 @@ function App() {
             />
             <Route
               path="/add-friend"
-              element={user ? <AddFriendPage user={user} /> : <LoginRedirect />}
+              element={user ? <AddFriendPage user={user} setUser={setUser} /> : <LoginRedirect />}
             />
             <Route
               path="/friends-activity"
               element={user ? <FriendsActivityFeed user={user} /> : <LoginRedirect />}
             />
-            <Route 
-              path="/friend/:username" 
-              element={<FriendProfilePage />} 
+            <Route
+              path="/friend/:username"
+              element={<FriendProfilePage />}
             />
-            <Route 
+            <Route
               path="/chat"
-              element={user ? <ChatPage user={user} /> : <LoginRedirect />} 
+              element={user ? <ChatPage user={user} /> : <LoginRedirect />}
             />
           </Routes>
         </div>

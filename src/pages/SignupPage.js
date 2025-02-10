@@ -1,56 +1,68 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createUser, checkUsernameExists, checkEmailExists } from '../helpers/userHelpers';
 
 const SignupPage = ({ setUser }) => {
   const [name, setName] = useState('');
-  const [username, setUsername] = useState(''); 
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSignup = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
+    try {
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
+        setLoading(false);
+        return;
+      }
+
+      // Check if username is taken
+      const usernameTaken = await checkUsernameExists(username);
+      if (usernameTaken) {
+        setError('Username is already taken. Please choose a different one.');
+        setLoading(false);
+        return;
+      }
+
+      // Check if email is taken
+      const emailTaken = await checkEmailExists(email);
+      if (emailTaken) {
+        setError('Email is already registered');
+        setLoading(false);
+        return;
+      }
+
+      const newUser = {
+        name,
+        username,
+        email,
+        password,
+        avatar: 'https://via.placeholder.com/150',
+        favoriteGenres: [],
+      };
+
+      const result = await createUser(newUser);
+
+      if (result.success) {
+        setUser(newUser);
+        navigate('/profile');
+      } else {
+        setError(result.error || 'Failed to create account');
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      setError('An error occurred during signup. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    const existingUsers = JSON.parse(localStorage.getItem('users')) || [];
-
-    const isUsernameTaken = existingUsers.some((user) => user.username === username);
-    if (isUsernameTaken) {
-      setError('Username is already taken. Please choose a different one.');
-      return;
-    }
-
-    const isEmailTaken = existingUsers.some((user) => user.email === email);
-    if (isEmailTaken) {
-      setError('Email is already registered');
-      return;
-    }
-
-    const newUser = {
-      name,
-      username,
-      email,
-      password,
-      avatar: 'https://via.placeholder.com/150',
-      favoriteGenres: [],
-      friends: [],
-      friendRequests: [],
-      activityFeed: [],
-    };
-
-    existingUsers.push(newUser);
-    localStorage.setItem('users', JSON.stringify(existingUsers));
-
-    setUser(newUser);
-    navigate('/profile');
-
-    console.log('Users in localStorage:', JSON.parse(localStorage.getItem('users')));
   };
 
   return (
@@ -69,6 +81,7 @@ const SignupPage = ({ setUser }) => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
           <div>
@@ -82,6 +95,7 @@ const SignupPage = ({ setUser }) => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
           <div>
@@ -95,6 +109,7 @@ const SignupPage = ({ setUser }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
           <div>
@@ -108,6 +123,7 @@ const SignupPage = ({ setUser }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
           <div>
@@ -121,14 +137,16 @@ const SignupPage = ({ setUser }) => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button
             type="submit"
-            className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+            className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:bg-blue-300"
+            disabled={loading}
           >
-            Sign Up
+            {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
       </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { getUserByUsername } from "../helpers/userHelpers";
 
 // Import default profile icon
 let defaultProfileIcon;
@@ -57,33 +58,45 @@ const FriendProfilePage = () => {
     const { username } = useParams();
     const [friendData, setFriendData] = useState(null);
     const [watchHistory, setWatchHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        const fetchFriendData = () => {
-            const users = JSON.parse(localStorage.getItem("users")) || [];
-            const selectedUser = users.find((u) => u.username === username);
+        const fetchFriendData = async () => {
+            setLoading(true);
+            setError(null);
 
-            if (selectedUser) {
-                setFriendData(selectedUser);
+            try {
+                const result = await getUserByUsername(username);
 
-                const activityFeed = selectedUser.activityFeed || [];
+                if (result.success) {
+                    setFriendData(result.user);
 
-                const sortedActivity = activityFeed.sort(
-                    (a, b) => new Date(b.timestampPosted) - new Date(a.timestampPosted)
-                );
+                    const activityFeed = result.user.activityFeed || [];
 
-                setWatchHistory(sortedActivity);
+                    // Sort by timestamp
+                    const sortedActivity = activityFeed.sort(
+                        (a, b) => new Date(b.timestampPosted) - new Date(a.timestampPosted)
+                    );
+
+                    setWatchHistory(sortedActivity);
+                } else {
+                    setError('User not found');
+                }
+            } catch (error) {
+                console.error('Error fetching friend data:', error);
+                setError('An error occurred while loading the profile');
+            } finally {
+                setLoading(false);
             }
         };
 
         fetchFriendData();
 
-        const handleStorageChange = () => fetchFriendData();
-        window.addEventListener("storage", handleStorageChange);
+        // Set up a polling interval to get real-time updates
+        const interval = setInterval(fetchFriendData, 10000); // Update every 10 seconds
 
-        return () => {
-            window.removeEventListener("storage", handleStorageChange);
-        };
+        return () => clearInterval(interval);
     }, [username]);
 
     const formatTimestamp = (timestamp) => {
@@ -94,8 +107,20 @@ const FriendProfilePage = () => {
         }
     };
 
-    if (!friendData) {
-        return <p>No user found.</p>;
+    if (loading) {
+        return (
+            <div className="bg-gray-100 p-6 min-h-screen flex items-center justify-center">
+                <p className="text-gray-600">Loading profile...</p>
+            </div>
+        );
+    }
+
+    if (error || !friendData) {
+        return (
+            <div className="bg-gray-100 p-6 min-h-screen flex items-center justify-center">
+                <p className="text-red-500">{error || 'User not found'}</p>
+            </div>
+        );
     }
 
     return (

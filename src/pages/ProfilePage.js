@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Confirm from '../components/Confirm';
-import { removeFriend } from '../helpers/friendHelpers';
+import { removeFriend, updateUserProfile, deleteUser as deleteUserFromDB, getUserByUsername } from '../helpers/userHelpers';
 
 let defaultProfileIcon;
 try {
@@ -13,7 +13,7 @@ try {
 
 const UserAvatar = ({ avatar, alt, size, className = "", style = {} }) => {
     const hasAvatar = avatar && avatar !== "https://via.placeholder.com/150";
-    
+
     if (hasAvatar) {
         return (
             <img
@@ -24,7 +24,7 @@ const UserAvatar = ({ avatar, alt, size, className = "", style = {} }) => {
             />
         );
     }
-    
+
     return (
         <div
             className={className}
@@ -54,13 +54,11 @@ const UserAvatar = ({ avatar, alt, size, className = "", style = {} }) => {
 
 const ProfilePage = ({ user, setUser }) => {
     const [showModal, setShowModal] = useState(false);
-    const [friends, setFriends] = useState(
-        JSON.parse(localStorage.getItem('users'))
-            .find((u) => u.email === user.email)?.friends || []
-    );
+    const [friends, setFriends] = useState([]);
     const [avatar, setAvatar] = useState(user.avatar);
     const [favoriteGenres, setFavoriteGenres] = useState(user.favoriteGenres || []);
     const [selectedGenre, setSelectedGenre] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const genresList = [
@@ -80,66 +78,102 @@ const ProfilePage = ({ user, setUser }) => {
         'TV Shows',
     ];
 
+    useEffect(() => {
+        // Load user data on mount
+        const loadUserData = async () => {
+            try {
+                const result = await getUserByUsername(user.username);
+                if (result.success) {
+                    setFriends(result.user.friends || []);
+                    setAvatar(result.user.avatar || user.avatar);
+                    setFavoriteGenres(result.user.favoriteGenres || []);
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+            }
+        };
+
+        loadUserData();
+    }, [user.username]);
+
     const handleLogout = () => {
         setUser(null);
         navigate('/');
     };
 
-    const handleDeleteAccount = () => {
-        const existingUsers = JSON.parse(localStorage.getItem('users')) || [];
-        const updatedUsers = existingUsers.filter((u) => u.email !== user.email);
-        localStorage.setItem('users', JSON.stringify(updatedUsers));
-        setUser(null);
-        navigate('/');
-    };
-
-    const handleRemoveFriend = (friendUsername) => {
-        const success = removeFriend(user.username, friendUsername);
-        if (success) {
-            setFriends(friends.filter((username) => username !== friendUsername));
+    const handleDeleteAccount = async () => {
+        setLoading(true);
+        try {
+            const result = await deleteUserFromDB(user.username);
+            if (result.success) {
+                setUser(null);
+                navigate('/');
+            } else {
+                alert('Failed to delete account: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            alert('An error occurred while deleting your account');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleAvatarChange = (event) => {
+    const handleRemoveFriend = async (friendUsername) => {
+        setLoading(true);
+        try {
+            const result = await removeFriend(user.username, friendUsername);
+            if (result.success) {
+                setFriends(friends.filter((username) => username !== friendUsername));
+            } else {
+                alert('Failed to remove friend: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Error removing friend:', error);
+            alert('An error occurred while removing friend');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAvatarChange = async (event) => {
         const file = event.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = () => {
+            reader.onload = async () => {
                 setAvatar(reader.result);
-                const users = JSON.parse(localStorage.getItem('users')) || [];
-                const currentUser = users.find((u) => u.email === user.email);
-                if (currentUser) {
-                    currentUser.avatar = reader.result;
-                    localStorage.setItem('users', JSON.stringify(users));
-                    setUser(currentUser);
-                }
+                await updateUserInDB({ avatar: reader.result });
             };
             reader.readAsDataURL(file);
         }
     };
 
-    const handleAddGenre = () => {
+    const handleAddGenre = async () => {
         if (selectedGenre && !favoriteGenres.includes(selectedGenre)) {
             const updatedGenres = [...favoriteGenres, selectedGenre];
             setFavoriteGenres(updatedGenres);
-            updateUserInStorage({ ...user, favoriteGenres: updatedGenres });
+            await updateUserInDB({ favoriteGenres: updatedGenres });
             setSelectedGenre('');
         }
     };
 
-    const handleRemoveGenre = (genreToRemove) => {
+    const handleRemoveGenre = async (genreToRemove) => {
         const updatedGenres = favoriteGenres.filter((genre) => genre !== genreToRemove);
         setFavoriteGenres(updatedGenres);
-        updateUserInStorage({ ...user, favoriteGenres: updatedGenres });
+        await updateUserInDB({ favoriteGenres: updatedGenres });
     };
 
-    const updateUserInStorage = (updatedUser) => {
-        const users = JSON.parse(localStorage.getItem('users')) || [];
-        const userIndex = users.findIndex((u) => u.email === user.email);
-        if (userIndex !== -1) {
-            users[userIndex] = updatedUser;
-            localStorage.setItem('users', JSON.stringify(users));
-            setUser(updatedUser);
+    const updateUserInDB = async (updates) => {
+        try {
+            const result = await updateUserProfile(user.username, updates);
+            if (result.success) {
+                // Update local user state
+                setUser({ ...user, ...updates });
+            } else {
+                console.error('Failed to update profile:', result.error);
+            }
+        } catch (error) {
+            console.error('Error updating profile:', error);
         }
     };
 
@@ -176,6 +210,7 @@ const ProfilePage = ({ user, setUser }) => {
                     type="file"
                     accept="image/*"
                     onChange={handleAvatarChange}
+                    disabled={loading}
                     className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:bg-red-500 file:text-white hover:file:bg-red-600"
                 />
             </div>
@@ -191,6 +226,7 @@ const ProfilePage = ({ user, setUser }) => {
                             {genre}
                             <button
                                 onClick={() => handleRemoveGenre(genre)}
+                                disabled={loading}
                                 className="ml-2 text-white hover:text-gray-300"
                             >
                                 ×
@@ -202,11 +238,12 @@ const ProfilePage = ({ user, setUser }) => {
                     <select
                         value={selectedGenre}
                         onChange={(e) => setSelectedGenre(e.target.value)}
+                        disabled={loading}
                         className="border border-black rounded p-2 bg-gray-800"
                     >
                         <option value="">Select a genre</option>
                         {genresList
-                            .filter((genre) => !favoriteGenres.includes(genre)) 
+                            .filter((genre) => !favoriteGenres.includes(genre))
                             .map((genre, index) => (
                                 <option key={index} value={genre}>
                                     {genre}
@@ -215,8 +252,8 @@ const ProfilePage = ({ user, setUser }) => {
                     </select>
                     <button
                         onClick={handleAddGenre}
-                        className="bg-blue-500 text-white px-4 py-2 rounded"
-                        disabled={!selectedGenre}
+                        disabled={!selectedGenre || loading}
+                        className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-blue-300"
                     >
                         Add
                     </button>
@@ -246,7 +283,8 @@ const ProfilePage = ({ user, setUser }) => {
                                 </div>
                                 <button
                                     onClick={() => handleRemoveFriend(friendUsername)}
-                                    className="bg-red-500 text-white py-1 px-2 rounded hover:bg-red-600"
+                                    disabled={loading}
+                                    className="bg-red-500 text-white py-1 px-2 rounded hover:bg-red-600 disabled:bg-red-300"
                                 >
                                     Remove
                                 </button>
@@ -265,7 +303,8 @@ const ProfilePage = ({ user, setUser }) => {
                 </button>
                 <button
                     onClick={() => setShowModal(true)}
-                    className="bg-gray-700 text-white py-2 px-4 rounded hover:bg-gray-800"
+                    disabled={loading}
+                    className="bg-gray-700 text-white py-2 px-4 rounded hover:bg-gray-800 disabled:bg-gray-600"
                 >
                     Delete Account
                 </button>

@@ -1,26 +1,40 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getUserByEmail } from '../helpers/userHelpers';
 
 const LoginPage = ({ setUser }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
 
-    const existingUsers = JSON.parse(localStorage.getItem('users')) || [];
+    try {
+      const result = await getUserByEmail(email);
 
-    const user = existingUsers.find(
-      (u) => u.email === email && u.password === password
-    );
-  
-    if (user) {
-      setUser(user); 
-      navigate('/profile'); 
-    } else {
-      setError('Invalid email or password');
+      if (result.success) {
+        const user = result.user;
+
+        // Verify password
+        if (user.password === password) {
+          setUser(user);
+          navigate('/profile');
+        } else {
+          setError('Invalid email or password');
+        }
+      } else {
+        setError('Invalid email or password');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('An error occurred during login. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -40,6 +54,7 @@ const LoginPage = ({ setUser }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
           <div>
@@ -53,14 +68,16 @@ const LoginPage = ({ setUser }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button
             type="submit"
-            className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+            className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:bg-blue-300"
+            disabled={loading}
           >
-            Login
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
       </div>

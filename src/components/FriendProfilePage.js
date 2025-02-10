@@ -1,19 +1,34 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { getUserByUsername } from '../helpers/userHelpers';
 
 const FriendProfilePage = () => {
-  const { username } = useParams(); 
+  const { username } = useParams();
   const navigate = useNavigate();
 
-  const users = JSON.parse(localStorage.getItem('users')) || [];
-  const friend = users.find((user) => user.username === username); 
+  const [friend, setFriend] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFriend = async () => {
+      const result = await getUserByUsername(username);
+      setFriend(result);
+      setLoading(false);
+    };
+
+    fetchFriend();
+  }, [username]);
+
+  if (loading) {
+    return <div className="text-white p-6">Loading...</div>;
+  }
 
   if (!friend) {
     return (
       <div className="bg-gray-100 min-h-screen p-6 flex flex-col items-center justify-center">
         <h1 className="text-2xl font-bold text-red-500">User not found</h1>
         <button
-          onClick={() => navigate(-1)} 
+          onClick={() => navigate(-1)}
           className="bg-blue-500 text-white py-2 px-4 rounded mt-4 hover:bg-blue-600"
         >
           Go Back

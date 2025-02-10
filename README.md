@@ -41,3 +41,4 @@ NetTrack transforms your Netflix experience into a social activity. Share what y
 * **API:** TMDb API (The Movie Database - for Netflix content data and reviews)
 
 ## Demo
+https://github.com/user-attachments/assets/c5c69ccf-09e6-485a-9ba1-19496084f58c
